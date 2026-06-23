@@ -1,0 +1,70 @@
+nextflow_pipeline {
+
+    name "Test rnaseq-nf pipeline"
+    script "../main.nf"
+    tag "pipeline"
+
+    test("Should run on default test data (ggal_gut)") {
+
+        when {
+            params {
+                reads = "${projectDir}/data/ggal/ggal_gut_{1,2}.fq"
+                transcriptome = "${projectDir}/data/ggal/ggal_1_48850000_49020000.Ggal71.500bpflank.fa"
+            }
+            options "-output-dir ${outputDir}"
+        }
+
+        then {
+            // Pipeline completes successfully
+            assert workflow.success
+
+            // --- MultiQC report exists (don't inspect contents — timestamps) ---
+            assert path("${outputDir}/multiqc_report.html").exists()
+
+            // --- Samples index CSV exists ---
+            assert path("${outputDir}/samples.csv").exists()
+
+            // --- FastQC output directory exists ---
+            assert path("${outputDir}/fastqc/ggal_gut").exists()
+
+            // --- Salmon quant output directory exists ---
+            assert path("${outputDir}/quant/ggal_gut").exists()
+
+            // --- quant.sf exists and has the expected Salmon columns ---
+            def quantSf = path("${outputDir}/quant/ggal_gut/quant.sf")
+            assert quantSf.exists()
+
+            def quantLines = quantSf.readLines()
+            // Header line contains the 5 standard Salmon columns
+            def header = quantLines[0].split("\t") as List
+            assert header == ["Name", "Length", "EffectiveLength", "TPM", "NumReads"]
+
+            // There are quantified transcripts (at least one data row)
+            assert quantLines.size() > 1
+
+            // Each data row has exactly 5 tab-separated fields
+            quantLines.tail().each { line ->
+                def fields = line.split("\t")
+                assert fields.size() == 5 : "Expected 5 columns but got ${fields.size()} in line: ${line}"
+            }
+
+            // TPM column sums to ~1,000,000 (Salmon normalisation)
+            def tpmSum = quantLines.tail().collect { line ->
+                line.split("\t")[3] as Double
+            }.sum()
+            assert Math.abs(tpmSum - 1_000_000.0) < 1.0 : "TPM sum was ${tpmSum}, expected ~1000000"
+
+            // --- Verify no unexpected empty quant.sf ---
+            // NumReads column should have at least some non-zero values
+            def totalReads = quantLines.tail().collect { line ->
+                line.split("\t")[4] as Double
+            }.sum()
+            assert totalReads > 0 : "NumReads sum was 0 — no reads were quantified"
+
+            // --- fastp trimming JSON report was produced (intermediate, not published,
+            //     but we verify the trimmed reads fed into quant by checking quant ran) ---
+            // The quant.sf with mapped reads confirms the full pipeline path:
+            //   reads -> fastp -> salmon quant
+        }
+    }
+}

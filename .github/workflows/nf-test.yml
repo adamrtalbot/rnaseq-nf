@@ -1,0 +1,36 @@
+name: nf-test
+on:
+  push:
+    branches: ['**']
+  pull_request:
+
+jobs:
+  test:
+    name: Run nf-test suite
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Java
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '21'
+
+      - name: Setup Nextflow
+        uses: nf-core/setup-nextflow@v2
+        with:
+          version: '26.04'
+
+      - name: Setup nf-test
+        uses: nf-core/setup-nf-test@v2
+        with:
+          version: '0.9.5'
+
+      - name: Run nf-test
+        run: nf-test test --profile docker --verbose
+        env:
+          NXF_ANSI_LOG: false
