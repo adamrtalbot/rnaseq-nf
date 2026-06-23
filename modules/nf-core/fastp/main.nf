@@ -67,12 +67,15 @@ process FASTP {
         """
     } else {
         def merge_fastq = save_merged ? "-m --merged_out ${prefix}.merged.fastq.gz" : ''
+        // Detect whether the input reads are gzipped based on file extension
+        def r1_ext = reads[0].name.endsWith('.gz') ? 'fastq.gz' : 'fastq'
+        def r2_ext = reads[1].name.endsWith('.gz') ? 'fastq.gz' : 'fastq'
         """
-        [ ! -f  ${prefix}_R1.fastq.gz ] && ln -sf ${reads[0]} ${prefix}_R1.fastq.gz
-        [ ! -f  ${prefix}_R2.fastq.gz ] && ln -sf ${reads[1]} ${prefix}_R2.fastq.gz
+        [ ! -f  ${prefix}_R1.${r1_ext} ] && ln -sf ${reads[0]} ${prefix}_R1.${r1_ext}
+        [ ! -f  ${prefix}_R2.${r2_ext} ] && ln -sf ${reads[1]} ${prefix}_R2.${r2_ext}
         fastp \\
-            --in1 ${prefix}_R1.fastq.gz \\
-            --in2 ${prefix}_R2.fastq.gz \\
+            --in1 ${prefix}_R1.${r1_ext} \\
+            --in2 ${prefix}_R2.${r2_ext} \\
             $out_fq1 \\
             $out_fq2 \\
             --json ${prefix}.fastp.json \\
