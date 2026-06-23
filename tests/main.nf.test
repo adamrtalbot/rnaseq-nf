@@ -13,8 +13,6 @@ nextflow_pipeline {
             }
             options "-output-dir ${outputDir}"
         }
-            options "-output-dir ${outputDir}"
-        }
 
         then {
             // Pipeline completes successfully
